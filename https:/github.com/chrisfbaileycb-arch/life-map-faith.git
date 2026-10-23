@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOOM • Your Life as Legend</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&amp;family=Inter:wght@400;500;600&amp;display=swap');
+        
+        :root {
+            --cosmic: #0a1729;
+        }
+        
+        body {
+            font-family: 'Inter', system_ui, sans-serif;
+        }
+        
+        .title-font {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .loom-canvas {
+            background: radial-gradient(circle at 45% 35%, rgba(165, 243, 252, 0.08) 0%, transparent 60%),
+                        radial-gradient(circle at 75% 65%, rgba(192, 38, 211, 0.06) 0%, transparent 60%);
+        }
+
+        .node-circle {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        
+        .node-circle:hover {
+            filter: brightness(1.5) drop-shadow(0 0 25px currentColor);
+            transform: scale(1.15);
+        }
+
+        .thread {
+            stroke: #67e8f9;
+            stroke-opacity: 0.65;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-dasharray: 12 18;
+            animation: threadFlow 4.5s linear infinite;
+        }
+
+        @keyframes threadFlow {
+            to {
+                stroke-dashoffset: -120;
+            }
+        }
+
+        .node-label {
+            font-family: 'Playfair Display', serif;
+            font-size: 13px;
+            fill: #e0f2fe;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            paint-order: stroke;
+            stroke: #0a1729;
+            stroke-width: 4;
+            stroke-linejoin: round;
+        }
+
+        .star {
+            position: absolute;
+            background: #f0f9ff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #67e8f9;
+            animation: twinkle 3s infinite alternate ease-in-out;
+            pointer-events: none;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .nebula {
+            position: absolute;
+            pointer-events: none;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: nebulaDrift 120s linear infinite;
+        }
+
+        .modal {
+            animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        @keyframes modalPop {
+            0% { transform: scale(0.7) translateY(40px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .glow-cyan {
+            filter: drop-shadow(0 0 15px #67e8f9);
+        }
+        
+        .chapter-text {
+            font-size: 15.2px;
+            line-height: 1.85;
+        }
+
+        .loom-svg text {
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="bg-[#05080f] text-slate-200 overflow-hidden">
+    <div class="flex h-screen">
+        <!-- LEFT SIDEBAR - perfectly aligned -->
+        <div class="w-80 bg-[#0a1729] border-r border-cyan-400/30 flex flex-col">
+            <!-- Logo Header -->
+            <div class="px-8 pt-8 pb-6 border-b border-cyan-400/20">
+                <div class="flex items-center gap-x-4">
+                    <div onclick="resetLoom()" 
+                         class="w-12 h-12 rounded-3xl bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-4xl shadow-[0_0_35px_-4px] shadow-cyan-400 cursor-pointer hover:rotate-12 transition-all active:scale-95">
+                        🧶
+                    </div>
+                    <div>
+                        <div class="title-font text-6xl font-bold tracking-[-4px] bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 via-violet-300 to-fuchsia-400">LOOM</div>
+                        <div class="text-xs text-cyan-400 tracking-[3px] font-medium -mt-2">YOUR LIFE • AS LEGEND</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend Stats - aligned -->
+            <div class="px-8 pt-8">
+                <div class="flex justify-between items-baseline mb-3">
+                    <div class="uppercase text-xs tracking-[1px] text-slate-400">Legend Strength</div>
+                    <div id="strength-value" class="text-emerald-400 font-mono text-2xl font-semibold tabular-nums">78</div>
+                </div>
+                <div class="h-2.5 bg-slate-950 rounded-3xl overflow-hidden border border-slate-700 mb-8">
+                    <div id="strength-bar" 
+                         class="h-2.5 w-[78%] bg-gradient-to-r from-cyan-400 via-violet-400 to-fuchsia-400 rounded-3xl transition-all duration-700"></div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs uppercase mb-6">
+                    <div class="text-amber-300">Current Arc</div>
+                    <div onclick="toggleArc()" 
+                         class="px-5 py-1 bg-gradient-to-r from-violet-500/20 to-amber-500/20 border border-violet-400/40 rounded-3xl text-violet-200 text-[10px] font-medium cursor-pointer hover:border-violet-300 transition-colors">
+                        REDEMPTION → ASCENSION
+                    </div>
+                </div>
+            </div>
+
+            <!-- Woven Threads List -->
+            <div class="px-8 flex-1 flex flex-col min-h-0">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="uppercase text-xs tracking-widest text-slate-400">14 Threads Woven</div>
+                    <button onclick="addNewMemory()" 
+                            class="flex items-center gap-x-2 text-xs bg-white/5 hover:bg-cyan-500/10 border border-cyan-400/60 hover:border-cyan-300 px-4 py-2 rounded-3xl transition-all">
+                        <span class="text-cyan-400 text-lg leading-none mt-px">+</span>
+                        <span class="font-medium">WEAVE</span>
+                    </button>
+                </div>
+                
+                <div id="thread-list" class="flex-1 overflow-auto space-y-1 pr-2 text-sm custom-scroll">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Footer instructions -->
+            <div class="p-8 border-t border-cyan-900/50 text-[10px] text-slate-500 leading-relaxed">
+                Click any glowing node to read its chapter.<br>
+                Threads show narrative connections.<br><br>
+                <span class="text-cyan-400">Personal Memory</span> • 
+                <span class="text-violet-400">Biblical Echo</span>
+            </div>
+            
+            <div onclick="showHelp()" 
+                 class="mx-8 mb-8 text-center text-[10px] py-3 border border-dashed border-slate-600 hover:border-cyan-400 rounded-3xl cursor-pointer transition-colors">
+                HOW LOOM WORKS • 5-STEP WORKFLOW
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="flex-1 flex flex-col relative">
+            <!-- Top bar -->
+            <div class="h-14 border-b border-cyan-900/30 bg-black/40 backdrop-blur-md flex items-center px-8 z-30">
+                <div class="flex-1 flex items-center gap-x-8 text-xs uppercase tracking-widest">
+                    <div onclick="switchTab(0)" id="tab-0"
+                         class="tab-button cursor-pointer border-b-2 border-cyan-400 pb-3 text-cyan-400">THE TAPESTRY</div>
+                    <div onclick="switchTab(1)" id="tab-1"
+                         class="tab-button cursor-pointer text-slate-400 hover:text-slate-200 pb-3">LIBRARY</div>
+                </div>
+                
+                <div class="flex items-center gap-x-6">
+                    <div class="flex items-center bg-slate-900/70 text-xs px-4 h-8 rounded-3xl border border-slate-700">
+                        <span class="text-emerald-400">●</span>
+                        <span class="ml-2">LIVE WEAVING</span>
+                    </div>
+                    <button onclick="addNewMemory()" 
+                            class="px-6 py-2 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold text-sm rounded-3xl flex items-center gap-x-2 hover:brightness-110 transition">
+                        <span>+</span>
+                        <span>NEW MEMORY</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="flex-1 relative loom-canvas flex items-center justify-center overflow-hidden" id="canvas-container">
+                <!-- Stars container -->
+                <div id="stars-container" class="absolute inset-0"></div>
+                
+                <!-- SVG Loom -->
+                <svg id="loom-svg" width="100%" height="100%" class="max-w-[1100px] max-h-[620px]" viewBox="0 0 1100 620" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Background subtle threads -->
+                    <defs>
+                        <!-- Glow filter -->
+                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                        
+                        <!-- Thread gradient -->
+                        <linearGradient id="threadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#67e8f9"/>
+                            <stop offset="100%" stop-color="#c026d3"/>
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- Threads (will be populated by JS) -->
+                    <g id="threads-group"></g>
+                    
+                    <!-- Nodes group -->
+                    <g id="nodes-group"></g>
+                </svg>
+
+                <!-- Overlay label for current focus -->
+                <div id="focus-label" 
+                     class="absolute bottom-12 left-1/2 -translate-x-1/2 bg-black/70 text-cyan-300 text-sm px-8 py-3 rounded-3xl border border-cyan-400/30 hidden flex items-center gap-x-3">
+                    <div class="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
+                    <span id="focus-text" class="title-font">Crossing the Jordan</span>
+                </div>
+            </div>
+
+            <!-- Bottom status bar -->
+            <div class="h-11 bg-black/60 border-t border-cyan-900/40 flex items-center px-8 text-xs text-slate-400 font-mono">
+                <div>LEGEND MAP • 5 NODES • 4 CONNECTIONS</div>
+                <div class="flex-1"></div>
+                <div onclick="narrateAll()" class="flex items-center gap-x-2 cursor-pointer hover:text-cyan-300 transition-colors">
+                    <span class="text-lg">🔊</span>
+                    <span>NARRATE ENTIRE LEGEND</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHAPTER MODAL -->
+    <div onclick="if(event.target.id === 'modal-backdrop') closeModal()" id="modal-backdrop"
+         class="hidden fixed inset-0 bg-black/80 backdrop-blur-xl z-50 flex items-center justify-center">
+        <div onclick="event.stopImmediatePropagation()" 
+             class="modal w-[780px] max-h-[88vh] bg-[#0a1729] border border-cyan-300/30 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            
+            <!-- Modal Header -->
+            <div class="px-10 pt-8 pb-6 border-b border-cyan-900/50 flex items-start justify-between">
+                <div>
+                    <div class="uppercase text-xs tracking-[2px] text-violet-300 mb-1">BIBLICAL ECHO</div>
+                    <div id="modal-title" class="title-font text-4xl text-white">Crossing the Jordan</div>
+                    <div id="modal-subtitle" class="text-cyan-400 text-sm mt-1">Joshua 3:4 • Ascension</div>
+                </div>
+                
+                <div class="flex items-center gap-x-4">
+                    <button onclick="toggleAudio()" 
+                            id="audio-btn"
+                            class="flex items-center gap-x-2 bg-white/5 hover:bg-white/10 px-5 h-10 rounded-3xl text-sm border border-cyan-400/30 transition-colors">
+                        <span class="text-xl">▶</span>
+                        <span>LISTEN</span>
+                    </button>
+                    <button onclick="closeModal()" 
+                            class="w-10 h-10 flex items-center justify-center text-3xl leading-none text-slate-400 hover:text-white transition-colors">×</button>
+                </div>
+            </div>
+            
+            <!-- Scrollable content -->
+            <div class="flex-1 p-10 overflow-auto custom-scroll chapter-text" id="modal-content">
+                <div class="prose prose-invert max-w-none">
+                    <p id="modal-text">When the feet of the priests bearing the ark touched the waters of the Jordan, the river stood in a heap. The people crossed on dry ground. This moment of radical obedience opened the door into the promised land.</p>
+                    
+                    <div class="my-10 border-l-2 border-violet-400 pl-6 text-slate-300 text-sm">
+                        <strong class="text-violet-200">Personal Reflection:</strong><br>
+                        The river parted when the priests stepped forward. A moment of radical trust before the miracle.
+                    </div>
+                </div>
+                
+                <!-- Weave form - aligned with grid -->
+                <div class="mt-12 bg-slate-950/60 border border-slate-700 rounded-3xl p-8">
+                    <div class="uppercase text-xs tracking-widest mb-6 text-slate-400">Weave New Thread • Add a memory or biblical reflection to your legend</div>
+                    
+                    <div class="grid grid-cols-12 gap-x-6 gap-y-8">
+                        <!-- Thread title -->
+                        <div class="col-span-12">
+                            <label class="block text-xs uppercase text-slate-400 mb-2">Thread Title</label>
+                            <input id="thread-title-input" 
+                                   value="The river parted when the priests stepped forward"
+                                   class="w-full bg-black border border-slate-600 focus:border-cyan-400 rounded-2xl px-6 py-4 text-slate-200 outline-none text-sm">
+                        </div>
+                        
+                        <!-- Reflection -->
+                        <div class="col-span-12">
+                            <label class="block text-xs uppercase text-slate-400 mb-2">Reflection or Summary</label>
+                            <textarea id="reflection-input" rows="4"
+                                class="w-full bg-black border border-slate-600 focus:border-cyan-400 rounded-3xl px-6 py-5 text-slate-200 outline-none resize-none">A moment of radical trust before the waters parted. What waters am I being asked to step into today?</textarea>
+                        </div>
+                        
+                        <!-- Type and Arc - aligned side by side -->
+                        <div class="col-span-6">
+                            <label class="block text-xs uppercase text-slate-400 mb-2">Type</label>
+                            <select id="type-select" 
+                                    class="w-full bg-black border border-slate-600 focus:border-cyan-400 rounded-2xl px-6 py-4 text-slate-200 outline-none">
+                                <option value="Biblical Historical">Biblical Historical</option>
+                                <option value="Personal Memory">Personal Memory</option>
+                                <option value="Echo">Echo</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-span-6">
+                            <label class="block text-xs uppercase text-slate-400 mb-2">Arc</label>
+                            <select id="arc-select" 
+                                    class="w-full bg-black border border-slate-600 focus:border-cyan-400 rounded-2xl px-6 py-4 text-slate-200 outline-none">
+                                <option value="Ascension">Ascension</option>
+                                <option value="Redemption" selected>Redemption</option>
+                                <option value="Deliverance">Deliverance</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 mt-10">
+                        <button onclick="closeModal()" 
+                                class="flex-1 py-4 text-slate-400 border border-slate-600 hover:border-slate-400 transition-colors rounded-3xl text-sm font-medium">
+                            CANCEL
+                        </button>
+                        <button onclick="weaveNewThread()" 
+                                class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl text-sm tracking-wider hover:brightness-110 transition-all">
+                            WEAVE INTO LOOM
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Workflow -->
+                <div class="mt-16 text-xs">
+                    <div class="uppercase text-slate-400 mb-4 tracking-widest text-center">THE LOOM WORKFLOW</div>
+                    <div class="grid grid-cols-5 gap-4 text-center">
+                        <div class="bg-slate-900/60 rounded-2xl p-4 border border-slate-700">
+                            <div class="text-cyan-400 text-3xl mb-3">1</div>
+                            <div class="font-medium text-slate-300">Capture</div>
+                            <div class="text-[10px] text-slate-500 mt-1">A memory or biblical story</div>
+                        </div>
+                        <div class="bg-slate-900/60 rounded-2xl p-4 border border-slate-700">
+                            <div class="text-cyan-400 text-3xl mb-3">2</div>
+                            <div class="font-medium text-slate-300">Weave</div>
+                            <div class="text-[10px] text-slate-500 mt-1">Connect via shared themes</div>
+                        </div>
+                        <div class="bg-slate-900/60 rounded-2xl p-4 border border-violet-400">
+                            <div class="text-violet-400 text-3xl mb-3">3</div>
+                            <div class="font-medium text-violet-300">Explore</div>
+                            <div class="text-[10px] text-slate-500 mt-1">The growing tapestry</div>
+                        </div>
+                        <div class="bg-slate-900/60 rounded-2xl p-4 border border-slate-700">
+                            <div class="text-cyan-400 text-3xl mb-3">4</div>
+                            <div class="font-medium text-slate-300">Narrate</div>
+                            <div class="text-[10px] text-slate-500 mt-1">With browser voice</div>
+                        </div>
+                        <div class="bg-slate-900/60 rounded-2xl p-4 border border-slate-700">
+                            <div class="text-cyan-400 text-3xl mb-3">5</div>
+                            <div class="font-medium text-slate-300">Grow</div>
+                            <div class="text-[10px] text-slate-500 mt-1">Your unique legend</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="px-10 py-6 border-t border-cyan-900/30 flex justify-between items-center text-xs">
+                <div class="flex items-center gap-x-5 text-slate-400">
+                    <div onclick="narrateCurrent()" class="flex items-center gap-x-2 cursor-pointer hover:text-white">
+                        <span class="text-xl">📖</span>
+                        <span>NARRATE THIS CHAPTER</span>
+                    </div>
+                </div>
+                <div class="text-emerald-400 text-xs font-medium flex items-center gap-x-2">
+                    <div class="w-2 h-2 bg-current rounded-full animate-ping"></div>
+                    THREAD ADDED TO TAPESTRY
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help modal -->
+    <div onclick="if(event.target.id==='help-backdrop') hideHelp()" id="help-backdrop" 
+         class="hidden fixed inset-0 bg-black/90 z-[60] flex items-center justify-center">
+        <div class="max-w-md bg-[#0a1729] border border-violet-300/30 rounded-3xl p-10">
+            <div class="title-font text-3xl mb-8 text-center">The LOOM Legend</div>
+            <div class="space-y-6 text-sm">
+                <div class="flex gap-4">
+                    <div class="font-mono text-cyan-400 w-6">01</div>
+                    <div>Click any glowing node to read its chapter. Threads show narrative connections.</div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="font-mono text-cyan-400 w-6">02</div>
+                    <div>Weave personal memories with biblical stories. The system finds thematic connections (courage, deliverance, redemption).</div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="font-mono text-cyan-400 w-6">03</div>
+                    <div>Watch the tapestry grow. Each new thread strengthens your Legend and creates new visual pathways.</div>
+                </div>
+            </div>
+            <button onclick="hideHelp()" 
+                    class="mt-12 w-full py-4 border border-slate-500 hover:bg-white/5 rounded-3xl text-sm">RETURN TO TAPESTRY</button>
+        </div>
+    </div>
+
+    <script>
+        // Tailwind script run
+        function initializeTailwind() {
+            // Already initialized via CDN
+        }
+        
+        // Sample nodes - positioned for perfect visual balance
+        let nodes = [
+            {
+                id: 1,
+                title: "Crossing the Jordan",
+                x: 280,
+                y: 410,
+                color: "#67e8f9",
+                arc: "Ascension",
+                connectedTo: [2]
+            },
+            {
+                id: 2,
+                title: "The Walls of Jericho",
+                x: 630,
+                y: 240,
+                color: "#c026d3",
+                arc: "Victory",
+                connectedTo: [1, 3, 4]
+            },
+            {
+                id: 3,
+                title: "Ascension",
+                x: 880,
+                y: 380,
+                color: "#a5f3fc",
+                arc: "Ascension",
+                connectedTo: [2]
+            },
+            {
+                id: 4,
+                title: "Redemption",
+                x: 420,
+                y: 170,
+                color: "#f59e0b",
+                arc: "Redemption",
+                connectedTo: [2, 5]
+            },
+            {
+                id: 5,
+                title: "David Spares Saul",
+                x: 760,
+                y: 480,
+                color: "#a78bfa",
+                arc: "Redemption",
+                connectedTo: [4]
+            }
+        ]
+        
+        let threads = [
+            "Crossing the Jordan",
+            "The Walls of Jericho",
+            "Ascension",
+            "Redemption",
+            "David Spares Saul",
+            "My First Failure",
+            "The Gift of Mentorship"
+        ]
+        
+        let legendStrength = 78
+        let currentNode = null
+        let isPlaying = false
+        
+        // Create background stars
+        function createStars() {
+            const container = document.getElementById('stars-container')
+            container.innerHTML = ''
+            
+            for (let i = 0; i < 180; i++) {
+                const star = document.createElement('div')
+                star.className = 'star'
+                
+                const size = Math.random() * 3.5 + 1
+                star.style.width = `${size}px`
+                star.style.height = `${size}px`
+                
+                star.style.left = `${Math.random() * 100}%`
+                star.style.top = `${Math.random() * 100}%`
+                
+                const delay = Math.random() * 4
+                star.style.animationDelay = `-${delay}s`
+                
+                // Occasional larger stars
+                if (Math.random() > 0.85) {
+                    star.style.width = '4px'
+                    star.style.height = '4px'
+                    star.style.boxShadow = '0 0 12px #a5f3fc'
+                }
+                
+                container.appendChild(star)
+            }
+            
+            // Add a few nebula blobs
+            for (let i = 0; i < 4; i++) {
+                const nebula = document.createElement('div')
+                nebula.className = 'nebula'
+                nebula.style.background = i % 2 === 0 
+                    ? 'radial-gradient(circle at 30% 40%, #67e8f9, transparent 70%)' 
+                    : 'radial-gradient(circle at 70% 60%, #c026d3, transparent 70%)'
+                nebula.style.width = `${300 + Math.random() * 400}px`
+                nebula.style.height = nebula.style.width
+                nebula.style.left = `${Math.random() * 60}%`
+                nebula.style.top = `${Math.random() * 50}%`
+                nebula.style.animationDuration = `${80 + Math.random() * 70}s`
+                container.appendChild(nebula)
+            }
+        }
+        
+        // Render the SVG with perfect alignment
+        function renderLoom() {
+            const svg = document.getElementById('loom-svg')
+            const threadsGroup = document.getElementById('threads-group')
+            const nodesGroup = document.getElementById('nodes-group')
+            
+            // Clear previous
+            threadsGroup.innerHTML = ''
+            nodesGroup.innerHTML = ''
+            
+            // Draw threads first (so they sit behind nodes)
+            nodes.forEach(node => {
+                node.connectedTo.forEach(targetId => {
+                    const target = nodes.find(n => n.id === targetId)
+                    if (!target) return
+                    
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line")
+                    line.setAttribute("x1", node.x)
+                    line.setAttribute("y1", node.y)
+                    line.setAttribute("x2", target.x)
+                    line.setAttribute("y2", target.y)
+                    line.setAttribute("stroke", "url(#threadGradient)")
+                    line.setAttribute("stroke-width", "3.5")
+                    line.setAttribute("class", "thread")
+                    line.setAttribute("stroke-dashoffset", "30")
+                    threadsGroup.appendChild(line)
+                })
+            })
+            
+            // Draw nodes
+            nodes.forEach((node, index) => {
+                // Node group
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g")
+                g.setAttribute("class", "node-group")
+                
+                // Outer glow ring
+                const outer = document.createElementNS("http://www.w3.org/2000/svg", "circle")
+                outer.setAttribute("cx", node.x)
+                outer.setAttribute("cy", node.y)
+                outer.setAttribute("r", "38")
+                outer.setAttribute("fill", "none")
+                outer.setAttribute("stroke", node.color)
+                outer.setAttribute("stroke-width", "9")
+                outer.setAttribute("opacity", "0.15")
+                g.appendChild(outer)
+                
+                // Main node
+                const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle")
+                circle.setAttribute("cx", node.x)
+                circle.setAttribute("cy", node.y)
+                circle.setAttribute("r", "26")
+                circle.setAttribute("fill", "#0a1729")
+                circle.setAttribute("stroke", node.color)
+                circle.setAttribute("stroke-width", "7")
+                circle.setAttribute("class", "node-circle")
+                circle.setAttribute("filter", "url(#glow)")
+                circle.onclick = () => openChapter(node)
+                g.appendChild(circle)
+                
+                // Inner highlight
+                const inner = document.createElementNS("http://www.w3.org/2000/svg", "circle")
+                inner.setAttribute("cx", node.x - 7)
+                inner.setAttribute("cy", node.y - 8)
+                inner.setAttribute("r", "8")
+                inner.setAttribute("fill", "rgba(255,255,255,0.25)")
+                g.appendChild(inner)
+                
+                // Label
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                text.setAttribute("x", node.x)
+                text.setAttribute("y", node.y + 62)
+                text.setAttribute("class", "node-label")
+                text.textContent = node.title.length > 18 ? node.title.substring(0, 16) + "..." : node.title
+                g.appendChild(text)
+                
+                nodesGroup.appendChild(g)
+            })
+        }
+        
+        function populateThreadList() {
+            const container = document.getElementById('thread-list')
+            container.innerHTML = ''
+            
+            threads.forEach((thread, i) => {
+                const div = document.createElement('div')
+                div.className = `px-5 py-[13px] text-sm hover:bg-white/5 rounded-2xl cursor-pointer transition-all flex items-center gap-x-3 ${i === 0 ? 'bg-cyan-900/30 text-cyan-200' : 'text-slate-300'}`
+                div.innerHTML = `
+                    <span class="text-cyan-400 text-xl">🧵</span>
+                    <span class="truncate">${thread}</span>
+                `
+                div.onclick = () => {
+                    const foundNode = nodes.find(n => n.title === thread || n.title.includes(thread.split(' ')[0]))
+                    if (foundNode) openChapter(foundNode)
+                }
+                container.appendChild(div)
+            })
+        }
+        
+        function updateLegendStrength(increment = 3) {
+            legendStrength = Math.min(100, legendStrength + increment)
+            document.getElementById('strength-value').textContent = legendStrength
+            document.getElementById('strength-bar').style.width = `${legendStrength}%`
+        }
+        
+        function openChapter(node) {
+            currentNode = node
+            document.getElementById('modal-backdrop').classList.remove('hidden')
+            document.getElementById('modal-backdrop').classList.add('flex')
+            
+            document.getElementById('modal-title').textContent = node.title
+            document.getElementById('modal-subtitle').textContent = `${node.arc} • Joshua 3-4`
+            
+            // Different text for different nodes
+            const modalText = document.getElementById('modal-text')
+            if (node.title.includes("Jordan")) {
+                modalText.innerHTML = `When the feet of the priests bearing the ark touched the waters of the Jordan, the river stood in a heap. The people crossed on dry ground. This moment of radical obedience opened the door into the promised land.`
+            } else if (node.title.includes("Jericho")) {
+                modalText.innerHTML = `By faith the walls of Jericho fell after the people had marched around them for seven days. The impossible became possible through persistent, obedient action.`
+            } else {
+                modalText.innerHTML = `A pivotal moment of trust and courage. Your story echoes this chapter. What walls are coming down in your life right now?`
+            }
+            
+            // Pre-fill form
+            document.getElementById('thread-title-input').value = `Reflection on ${node.title}`
+            document.getElementById('reflection-input').value = `The ${node.title.toLowerCase()} reminds me of the courage needed to step into unknown territory...`
+        }
+        
+        function closeModal() {
+            const backdrop = document.getElementById('modal-backdrop')
+            backdrop.classList.add('hidden')
+            backdrop.classList.remove('flex')
+        }
+        
+        function weaveNewThread() {
+            const titleInput = document.getElementById('thread-title-input')
+            const newTitle = titleInput.value || "New Reflection"
+            
+            // Add to threads list
+            if (!threads.includes(newTitle)) {
+                threads.unshift(newTitle)
+                populateThreadList()
+            }
+            
+            // Add a new node dynamically
+            if (nodes.length < 8) {
+                const lastNode = nodes[nodes.length - 1]
+                const newNode = {
+                    id: Date.now(),
+                    title: newTitle.length > 22 ? newTitle.substring(0, 19) + "..." : newTitle,
+                    x: lastNode.x + (Math.random() * 160 - 60),
+                    y: lastNode.y - 90 + (Math.random() * 80),
+                    color: "#67e8f9",
+                    arc: document.getElementById('arc-select').value,
+                    connectedTo: [2]
+                }
+                nodes.push(newNode)
+                renderLoom()
+            }
+            
+            updateLegendStrength(7)
+            closeModal()
+            
+            // Celebration animation on strength bar
+            const bar = document.getElementById('strength-bar')
+            bar.style.transitionDuration = '1200ms'
+            setTimeout(() => {
+                bar.style.transitionDuration = '700ms'
+            }, 1400)
+        }
+        
+        function toggleAudio() {
+            const btn = document.getElementById('audio-btn')
+            isPlaying = !isPlaying
+            
+            if (isPlaying) {
+                btn.innerHTML = `
+                    <span class="text-xl">❚❚</span>
+                    <span>PAUSE</span>
+                `
+                btn.classList.add('!border-emerald-400', '!text-emerald-300')
+                
+                // Simulate speech
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(
+                        "When the feet of the priests bearing the ark touched the waters of the Jordan, the river stood still in a heap."
+                    )
+                    utterance.pitch = 1.05
+                    utterance.rate = 0.96
+                    speechSynthesis.speak(utterance)
+                }
+            } else {
+                btn.innerHTML = `
+                    <span class="text-xl">▶</span>
+                    <span>LISTEN</span>
+                `
+                btn.classList.remove('!border-emerald-400', '!text-emerald-300')
+                if ('speechSynthesis' in window) speechSynthesis.cancel()
+            }
+        }
+        
+        function narrateCurrent() {
+            if (!currentNode) return
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(currentNode.title + ". " + document.getElementById('modal-text').innerText)
+                utterance.rate = 0.92
+                speechSynthesis.speak(utterance)
+            }
+            toggleAudio()
+        }
+        
+        function narrateAll() {
+            const messages = [
+                "Your legend grows stronger with every thread you weave.",
+                "The river parts when you step forward in faith.",
+                "The walls are coming down."
+            ]
+            
+            let i = 0
+            const interval = setInterval(() => {
+                if (i >= messages.length) {
+                    clearInterval(interval)
+                    return
+                }
+                if ('speechSynthesis' in window) {
+                    const u = new SpeechSynthesisUtterance(messages[i])
+                    speechSynthesis.speak(u)
+                }
+                i++
+            }, 1800)
+        }
+        
+        function addNewMemory() {
+            // Open modal with empty form for new memory
+            currentNode = null
+            document.getElementById('modal-backdrop').classList.remove('hidden')
+            document.getElementById('modal-backdrop').classList.add('flex')
+            
+            document.getElementById('modal-title').innerHTML = `New Memory <span class="text-xs align-super ml-3 text-slate-400">PERSONAL</span>`
+            document.getElementById('modal-subtitle').textContent = 'What story are you ready to weave?'
+            document.getElementById('modal-text').innerHTML = 'Every life contains epic threads. Write one memory, one turning point, or one biblical echo that has shaped who you are becoming.'
+            
+            document.getElementById('thread-title-input').value = ''
+            document.getElementById('reflection-input').value = 'Today I remembered the time I...'
+            document.getElementById('type-select').value = 'Personal Memory'
+        }
+        
+        function resetLoom() {
+            if (confirm("Reset the entire tapestry and begin again?")) {
+                legendStrength = 42
+                document.getElementById('strength-value').textContent = legendStrength
+                document.getElementById('strength-bar').style.width = '42%'
+                
+                threads = ["Crossing the Jordan", "The Walls of Jericho", "Ascension"]
+                populateThreadList()
+                renderLoom()
+            }
+        }
+        
+        function toggleArc() {
+            const arcs = ["REDEMPTION", "ASCENSION", "DELIVERANCE"]
+            const current = document.querySelector('.text-amber-300')
+            if (current) {
+                const idx = arcs.indexOf(current.textContent)
+                current.textContent = arcs[(idx + 1) % arcs.length]
+            }
+            updateLegendStrength(2)
+        }
+        
+        function showHelp() {
+            document.getElementById('help-backdrop').classList.remove('hidden')
+            document.getElementById('help-backdrop').classList.add('flex')
+        }
+        
+        function hideHelp() {
+            const backdrop = document.getElementById('help-backdrop')
+            backdrop.classList.add('hidden')
+            backdrop.classList.remove('flex')
+        }
+        
+        function switchTab(n) {
+            document.querySelectorAll('.tab-button').forEach((el, i) => {
+                if (i === n) {
+                    el.classList.add('border-b-2', 'border-cyan-400', 'text-cyan-400')
+                } else {
+                    el.classList.remove('border-b-2', 'border-cyan-400', 'text-cyan-400')
+                }
+            })
+            
+            if (n === 1) {
+                alert("📚 LIBRARY MODE\n\nIn the full version this would show your complete collection of memories and biblical reflections sorted by arc.\n\nFor now, click any node on the tapestry.")
+            }
+        }
+        
+        // Keyboard shortcuts
+        function handleKeys(e) {
+            if (e.metaKey && e.key === "k") {
+                e.preventDefault()
+                addNewMemory()
+            }
+            if (e.key === "Escape") {
+                const modal = document.getElementById('modal-backdrop')
+                if (!modal.classList.contains('hidden')) closeModal()
+                else hideHelp()
+            }
+        }
+        
+        // Initialize everything
+        function initializeApp() {
+            // Tailwind ready
+            createStars()
+            renderLoom()
+            populateThreadList()
+            
+            // Make SVG responsive
+            const svg = document.getElementById('loom-svg')
+            const container = document.getElementById('canvas-container')
+            
+            function resizeSVG() {
+                const rect = container.getBoundingClientRect()
+                svg.setAttribute("width", Math.min(rect.width * 0.92, 1100))
+                svg.setAttribute("height", Math.min(rect.height * 0.88, 620))
+            }
+            
+            window.addEventListener('resize', resizeSVG)
+            setTimeout(resizeSVG, 120)
+            
+            // Keyboard
+            document.addEventListener('keydown', handleKeys)
+            
+            // Demo: auto open first chapter after load
+            setTimeout(() => {
+                const firstNode = nodes[0]
+                // openChapter(firstNode) // uncomment for demo
+            }, 1100)
+            
+            // Click anywhere on canvas background to give feedback
+            document.getElementById('canvas-container').addEventListener('click', function(e) {
+                if (e.target.id === 'canvas-container' || e.target.id === 'stars-container') {
+                    const label = document.getElementById('focus-label')
+                    label.classList.toggle('hidden')
+                    setTimeout(() => {
+                        label.classList.add('hidden')
+                    }, 2200)
+                }
+            })
+            
+            console.log('%cLOOM initialized. Click the glowing nodes. Everything is now perfectly aligned.', 'color:#67e8f9; font-family:monospace')
+        }
+        
+        // Boot the app
+        window.onload = initializeApp
+    </script>
+</body>
+</html>
